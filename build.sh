@@ -29,6 +29,8 @@ cp "pkg-node/${PKG_NAME}.js" "pkg/${PKG_NAME}_node.js"
 cp "pkg-node/${PKG_NAME}_bg.wasm" "pkg/${PKG_NAME}_bg_node.wasm"
 sed -i '' "s/${PKG_NAME}_bg.wasm/${PKG_NAME}_bg_node.wasm/g" "pkg/${PKG_NAME}_node.js"
 jq ".files += [\"${PKG_NAME}_node.js\", \"${PKG_NAME}_bg_node.wasm\", \"README.md\"]" pkg/package.json \
-    | jq ".main = \"${PKG_NAME}_node.js\"" > pkg/temp.json
+    | jq ".main = \"${PKG_NAME}_node.js\"" \
+    | jq ".repository.url = \"https://github.com/mainnet-pat/dleq-tools\"" \
+    | jq ".license = \"MIT\"" > pkg/temp.json
 mv pkg/temp.json pkg/package.json
 rm -rf pkg-node
