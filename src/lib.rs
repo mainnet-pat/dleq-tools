@@ -1,5 +1,4 @@
 #![allow(non_snake_case)]
-
 use curve25519_dalek::edwards::EdwardsPoint;
 use ecdsa_fun::fun::Point;
 use ecdsa_fun::nonce::Deterministic;
@@ -15,6 +14,8 @@ use ecdsa_fun::Signature;
 use ecdsa_fun::adaptor::Adaptor;
 use ecdsa_fun::ECDSA;
 use wasm_bindgen::prelude::wasm_bindgen;
+use base58_monero::base58;
+use keccak_hash::keccak_256;
 
 pub static CROSS_CURVE_PROOF_SYSTEM: Lazy<
     CrossCurveDLEQ<HashTranscript<Sha256, rand_chacha::ChaCha20Rng>>,
@@ -183,6 +184,37 @@ pub fn addMoneroPubKeys(pubKeyA: String, pubKeyB: String) -> String {
 
     let sum = pubKeyA + pubKeyB;
     let encoded: String = hex::encode(&bincode::serialize(&sum).unwrap());
+    return encoded;
+}
+
+/// Create an standard address which is valid on the given network.
+///
+/// # Arguments
+/// * `network` - The network to create the address for.
+/// * `pubKeySpend` - The public spend key.
+/// * `pubKeyView` - The public view key.
+///
+/// # Returns
+/// * `Address` - The standard address.
+#[wasm_bindgen]
+pub fn getMoneroAddress(pubKeySpend: String, pubKeyView: String) -> String {
+    // 18 -> Mainnet, 53 -> Testnet, 24 -> Stagenet
+    let network: u8 = 18;
+    let pubKeySpend = hex::decode(pubKeySpend).unwrap();
+    let pubKeySpend: EdwardsPoint = bincode::deserialize(&pubKeySpend).unwrap();
+
+    let pubKeyView = hex::decode(pubKeyView).unwrap();
+    let pubKeyView: EdwardsPoint = bincode::deserialize(&pubKeyView).unwrap();
+
+    let mut bytes = vec![network];
+    bytes.extend_from_slice(pubKeySpend.compress().as_bytes().as_slice());
+    bytes.extend_from_slice(pubKeyView.compress().as_bytes().as_slice());
+
+    let mut checksum = [0u8; 32];
+    keccak_256(bytes.as_slice(), &mut checksum);
+    bytes.extend_from_slice(&checksum[0..4]);
+
+    let encoded = base58::encode(bytes.as_slice()).unwrap();
     return encoded;
 }
 
@@ -400,7 +432,7 @@ pub fn sign(privKey: String, digest: String) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::{decryptSignature, getBitcoinPubKey, getDleqProof, getMoneroPubKey, getRandomMoneroPrivKey, makeAdaptorSignature, recoverPrivateKey, toBitcoinPrivKey, toMoneroPrivKey, verifyDleqProof, verifyEncryptedSignature};
+    use crate::{decryptSignature, getBitcoinPubKey, getDleqProof, getMoneroAddress, getMoneroPubKey, getRandomMoneroPrivKey, makeAdaptorSignature, recoverPrivateKey, toBitcoinPrivKey, toMoneroPrivKey, verifyDleqProof, verifyEncryptedSignature};
 
     #[test]
     fn testPrivKeyConversion() {
@@ -409,6 +441,14 @@ mod tests {
         let moneroPrivKey2 = toMoneroPrivKey(bitcoinPrivKey.clone());
         assert_eq!(moneroPrivKey, moneroPrivKey2);
         return;
+    }
+
+    #[test]
+    fn testAddressEncodingMainnet() {
+        let publicSpendKey = "008102f32d734f0e5b68102f5cda510c743f2d5d4bc8562e10884bf4b09be193".to_string();
+        let pulicViewKey = "1087700e886ae1b10153160fffdbeeeed3ba3f140cf1d8d4c598898eef5558e2".to_string();
+        let expectedAddress = "41eDVgTTK8a3QHKk66rx4G35paNMGsFFs8htHCd155eGRbiDBLmG4cGWcAyKUCyPEMgwvTSzCKy3dcb9uaDepZLbSWwcujQ".to_string();
+        assert_eq!(getMoneroAddress(publicSpendKey, pulicViewKey), expectedAddress);
     }
 
     #[test]
@@ -455,21 +495,22 @@ mod tests {
         // Bob locks his BCH in a smart contract, which requires Alice to submit Bob's signature on the agreed digest
         // Alice observes the contract creation transaction
         // Alice sends her XMR to an address with Public view key A+B = Alice public view key + Bob public view key, from which she can not spend
+        // Alice sends Bob the details of the transaction: transaction hash, transaction key and the destination address
 
         // Bob generates an adaptor signature and transmits it to Alice
-        let encryptedSignature = makeAdaptorSignature(aBitcoin.clone(), bPubBitcoin.clone(), digest.clone());
+        let encryptedSignature = makeAdaptorSignature(bBitcoin.clone(), aPubBitcoin.clone(), digest.clone());
 
         // Alice verifies the signature with her public key
-        assert!(verifyEncryptedSignature(aPubBitcoin.clone(), bPubBitcoin.clone(), digest, encryptedSignature.clone()));
+        assert!(verifyEncryptedSignature(bPubBitcoin.clone(), aPubBitcoin.clone(), digest, encryptedSignature.clone()));
 
-        // She decrypts the signature with her private key and recovers Bob's data signature
-        let signature = decryptSignature(aBitcoin.clone(), encryptedSignature.clone());
+        // She decrypts the adaptor signature with her private key and recovers Bob's data signature
+        let signature = decryptSignature(bBitcoin.clone(), encryptedSignature.clone());
 
         // She then submits this signature to claim Bob's BCH locked in a smart contract
         // Bob observes the transaction and recovers Alice's private key from the signature
-        let recovered = recoverPrivateKey(aPubBitcoin, signature, encryptedSignature);
+        let recovered = recoverPrivateKey(bPubBitcoin, signature, encryptedSignature);
 
-        assert_eq!(recovered, aBitcoin);
+        assert_eq!(recovered, bBitcoin);
 
         // Bob now knows Alice's private key and can combine XMR key parts to claim the funds behind A+B address
         // Bob never leaked his private key, so Alice would never claim her XMR back
