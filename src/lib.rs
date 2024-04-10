@@ -197,9 +197,14 @@ pub fn addMoneroPubKeys(pubKeyA: String, pubKeyB: String) -> String {
 /// # Returns
 /// * `Address` - The standard address.
 #[wasm_bindgen]
-pub fn getMoneroAddress(pubKeySpend: String, pubKeyView: String) -> String {
+pub fn getMoneroAddress(network: String, pubKeySpend: String, pubKeyView: String) -> String {
     // 18 -> Mainnet, 53 -> Testnet, 24 -> Stagenet
-    let network: u8 = 18;
+    let network: u8 = match network.as_str() {
+        "mainnet" => 18,
+        "stagenet" => 24,
+        "testnet" => 53,
+        _ => return "".to_string(),
+    };
     let pubKeySpend = hex::decode(pubKeySpend).unwrap();
     let pubKeySpend: EdwardsPoint = bincode::deserialize(&pubKeySpend).unwrap();
 
@@ -445,10 +450,34 @@ mod tests {
 
     #[test]
     fn testAddressEncodingMainnet() {
-        let publicSpendKey = "008102f32d734f0e5b68102f5cda510c743f2d5d4bc8562e10884bf4b09be193".to_string();
-        let pulicViewKey = "1087700e886ae1b10153160fffdbeeeed3ba3f140cf1d8d4c598898eef5558e2".to_string();
-        let expectedAddress = "41eDVgTTK8a3QHKk66rx4G35paNMGsFFs8htHCd155eGRbiDBLmG4cGWcAyKUCyPEMgwvTSzCKy3dcb9uaDepZLbSWwcujQ".to_string();
-        assert_eq!(getMoneroAddress(publicSpendKey, pulicViewKey), expectedAddress);
+        let publicSpendKey = "e383746871e5669059f45ab9d418df546c3d807a4158fd4c8d2b063a8023e237".to_string();
+        let pulicViewKey = "03092ba141ca3b0bee9879dbb8a33020581563f9ec0972045ac632c762c4bdf7".to_string();
+        let expectedAddress = "4AFAnp94fXjR9PaTDgnnxWF81Qh7ufjxpDoeQEi7DtEdACgfmsYER8E2zkpSsztJhu6Qn8PEHFop51jFCzz8qWngUsiKT48".to_string();
+        assert_eq!(getMoneroAddress("mainnet".to_string(), publicSpendKey, pulicViewKey), expectedAddress);
+    }
+
+    #[test]
+    fn testAddressEncodingTestnet() {
+        let publicSpendKey = "e383746871e5669059f45ab9d418df546c3d807a4158fd4c8d2b063a8023e237".to_string();
+        let pulicViewKey = "03092ba141ca3b0bee9879dbb8a33020581563f9ec0972045ac632c762c4bdf7".to_string();
+        let expectedAddress = "A1niH4oKwtqR9PaTDgnnxWF81Qh7ufjxpDoeQEi7DtEdACgfmsYER8E2zkpSsztJhu6Qn8PEHFop51jFCzz8qWngUyhAtbe".to_string();
+        assert_eq!(getMoneroAddress("testnet".to_string(), publicSpendKey, pulicViewKey), expectedAddress);
+    }
+
+    #[test]
+    fn testAddressEncodingStagenet() {
+        let publicSpendKey = "e383746871e5669059f45ab9d418df546c3d807a4158fd4c8d2b063a8023e237".to_string();
+        let pulicViewKey = "03092ba141ca3b0bee9879dbb8a33020581563f9ec0972045ac632c762c4bdf7".to_string();
+        let expectedAddress = "5ATCsf42K8qR9PaTDgnnxWF81Qh7ufjxpDoeQEi7DtEdACgfmsYER8E2zkpSsztJhu6Qn8PEHFop51jFCzz8qWngUwN6q1R".to_string();
+        assert_eq!(getMoneroAddress("stagenet".to_string(), publicSpendKey, pulicViewKey), expectedAddress);
+    }
+
+    #[test]
+    fn testAddressEncodingWrongNetwork() {
+        let publicSpendKey = "e383746871e5669059f45ab9d418df546c3d807a4158fd4c8d2b063a8023e237".to_string();
+        let pulicViewKey = "03092ba141ca3b0bee9879dbb8a33020581563f9ec0972045ac632c762c4bdf7".to_string();
+        let expectedAddress = "".to_string();
+        assert_eq!(getMoneroAddress("".to_string(), publicSpendKey, pulicViewKey), expectedAddress);
     }
 
     #[test]
