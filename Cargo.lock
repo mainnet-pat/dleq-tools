@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "dleq-tools"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "base58-monero",
  "bincode",
