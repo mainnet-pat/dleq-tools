@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>My Wasm Project</title>
+  </head>
+
+  <body>
+    <script type="module">
+      // Importing WASM as a JS module requires us to call an init function provided by the default export.
+      // This is planned to be changed in the future.
+      import { getRandomMoneroPrivKey } from "../pkg/index.js";
+
+      console.log(getRandomMoneroPrivKey());
+    </script>
+  </body>
+</html>

@@ -445,7 +445,6 @@ mod tests {
         let bitcoinPrivKey = toBitcoinPrivKey(moneroPrivKey.clone());
         let moneroPrivKey2 = toMoneroPrivKey(bitcoinPrivKey.clone());
         assert_eq!(moneroPrivKey, moneroPrivKey2);
-        return;
     }
 
     #[test]
